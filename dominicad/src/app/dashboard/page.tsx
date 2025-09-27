@@ -1,24 +1,61 @@
+import { cookies } from "next/headers";
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Download, LineChart, NotepadText, PlusCircle, Users } from "lucide-react";
+
 import { classSummary, pendingFollowUps, weeklyAttendance } from "@/data/dashboard";
+import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Dashboard • DominiCad",
 };
 
-export default function DashboardPage() {
+const PLAN_LABELS: Record<string, { title: string; description: string }> = {
+  free: {
+    title: "Inicial – Gratuito",
+    description: "Plano gratuito para começar a digitalização da Escola Dominical.",
+  },
+  essential: {
+    title: "Essencial – R$ 69/mês",
+    description: "Inclui dashboards completos e suporte priorizado.",
+  },
+  advanced: {
+    title: "Avançado – Sob consulta",
+    description: "Plano customizado com consultoria dedicada para grandes igrejas.",
+  },
+};
+
+export default async function DashboardPage() {
+  const cookieHeader = cookies().toString();
+  const session = await auth.api.getSession({
+    headers: {
+      cookie: cookieHeader,
+    },
+  });
+
+  if (!session.data) {
+    redirect("/login");
+  }
+
+  const { user, session: activeSession } = session.data;
+  const churchName = user.churchName?.trim() || "DominiCad";
+  const responsibleName = user.teacherName?.trim() || user.name;
+  const plan = user.plan ?? "free";
+  const planInfo = PLAN_LABELS[plan] ?? PLAN_LABELS.free;
+  const initials = getInitials(churchName);
+
   return (
     <div className="min-h-screen bg-slate-950">
       <header className="border-b border-slate-800/60 bg-slate-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-base font-bold text-slate-950">
-              DC
+              {initials}
             </span>
             <div>
-              <p className="text-sm font-medium text-emerald-200">DominiCad</p>
-              <p className="text-xs text-slate-400">Igreja Batista Esperança • 1º Trimestre/2025</p>
+              <p className="text-sm font-medium text-emerald-200">{churchName}</p>
+              <p className="text-xs text-slate-400">Responsável: {responsibleName}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-300">
@@ -44,7 +81,11 @@ export default function DashboardPage() {
           <StatCard title="Total de alunos" value="132" description="Somando todos os workspaces de professores" />
           <StatCard title="Presença média" value="89%" description="Últimos 3 meses" highlight />
           <StatCard title="Visitantes no mês" value="22" description="+7 em relação ao mês anterior" />
-          <StatCard title="Oferta acumulada" value="R$ 8.450" description="Meta trimestral atingida" />
+          <StatCard
+            title="Sessão ativa"
+            value={activeSession?.expiresAt ? formatSessionExpiry(activeSession.expiresAt) : "Ativa"}
+            description="Validade da sessão atual"
+          />
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -79,7 +120,8 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-6">
             <div className="rounded-3xl border border-emerald-500/40 bg-emerald-500/10 p-6">
               <h2 className="text-lg font-semibold text-white">Status do plano</h2>
-              <p className="mt-2 text-sm text-emerald-100">Essencial – válido até 30/06/2025</p>
+              <p className="mt-2 text-sm text-emerald-100">{planInfo.title}</p>
+              <p className="mt-1 text-xs text-emerald-200/80">{planInfo.description}</p>
               <button className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-950 transition hover:bg-slate-200">
                 <ArrowRight className="h-4 w-4" />
                 Gerenciar assinatura
@@ -191,4 +233,31 @@ function StatCard({ title, value, description, highlight }: StatCardProps) {
       <p className="mt-2 text-xs text-slate-400">{description}</p>
     </div>
   );
+}
+
+function getInitials(value: string) {
+  const words = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const initials = words
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+  return initials || "DC";
+}
+
+function formatSessionExpiry(expiresAt: Date | string) {
+  const expiry = typeof expiresAt === "string" ? new Date(expiresAt) : expiresAt;
+  const now = new Date();
+  const diffInMs = expiry.getTime() - now.getTime();
+  if (diffInMs <= 0) {
+    return "Expirada";
+  }
+  const diffInHours = Math.round(diffInMs / (1000 * 60 * 60));
+  if (diffInHours < 24) {
+    return `${diffInHours}h restantes`;
+  }
+  const diffInDays = Math.round(diffInHours / 24);
+  return `${diffInDays} dia${diffInDays > 1 ? "s" : ""}`;
 }

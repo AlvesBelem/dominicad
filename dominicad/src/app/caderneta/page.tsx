@@ -93,13 +93,7 @@ export default function CadernetaPage() {
             Voltar ao dashboard
           </Link>
         </div>
-      </header>
-      {/* resto do componente */}
-    </div>
-  );
-}
-
-
+        </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6">
         <section className="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:grid-cols-2 lg:grid-cols-4">
