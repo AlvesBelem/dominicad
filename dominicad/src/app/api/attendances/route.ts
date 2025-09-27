@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -44,6 +43,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const payload = await request.json();
+
   const {
     classId,
     studentId,
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
   const record = await prisma.attendance.upsert({
     where: {
-      // ensures uniqueness by class, student, and date combination
+      // garante unicidade por turma, aluno (ou geral), e data
       id: `${classId}-${studentId ?? "geral"}-${date}`,
     },
     update: {

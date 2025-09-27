@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
@@ -12,21 +11,24 @@ export async function POST(request: Request) {
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
+
   if (!user || !user.passwordHash) {
     return NextResponse.json({ message: "E-mail ou senha incorretos." }, { status: 401 });
   }
 
   const isValid = await bcrypt.compare(password, user.passwordHash);
+
   if (!isValid) {
     return NextResponse.json({ message: "E-mail ou senha incorretos." }, { status: 401 });
   }
 
-  // In a real app you would issue a JWT here.
+  // Em um sistema real, gere um JWT aqui
   return NextResponse.json({
     message: "Login autorizado",
-    token: "mock-token",
-    workspace: {
+    token: "mock-jwt-token",
+    user: {
       id: user.id,
+      email: user.email,
       church: user.churchName,
       plan: user.plan,
     },

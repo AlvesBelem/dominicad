@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -31,7 +30,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const { classId, orderNumber, name, age, birthDay, birthMonth, enrollmentDate, address, observation } = payload ?? {};
+
+  const {
+    classId,
+    orderNumber,
+    name,
+    age,
+    birthDay,
+    birthMonth,
+    enrollmentDate,
+    address,
+    observation,
+  } = payload ?? {};
 
   if (!classId || !orderNumber || !name) {
     return NextResponse.json({ message: "Número, nome e turma são obrigatórios." }, { status: 400 });

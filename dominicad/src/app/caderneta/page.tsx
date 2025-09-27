@@ -39,11 +39,16 @@ export default function CadernetaPage() {
   const frequencyRows = useMemo(() => {
     return studentsFrequency.map((student) => {
       const monthSnapshots = months.map((month) => {
-        const presences = student.frequency[selectedQuarter]?.[month.name] ?? new Array(month.sundays.length).fill(false);
+        const presences =
+          student.frequency[selectedQuarter]?.[month.name] ??
+          new Array(month.sundays.length).fill(false);
         const totalPresences = presences.filter(Boolean).length;
         return { month, presences, totalPresences };
       });
-      const quarterTotal = monthSnapshots.reduce((sum, snapshot) => sum + snapshot.totalPresences, 0);
+      const quarterTotal = monthSnapshots.reduce(
+        (sum, snapshot) => sum + snapshot.totalPresences,
+        0
+      );
       return { student, monthSnapshots, quarterTotal };
     });
   }, [months, selectedQuarter]);
@@ -68,12 +73,16 @@ export default function CadernetaPage() {
       <header className="border-b border-slate-800/60 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-emerald-200">Caderneta Digital Dominical</p>
+            <p className="text-xs uppercase tracking-wide text-emerald-200">
+              Caderneta Digital Dominical
+            </p>
             <h1 className="mt-2 text-2xl font-semibold text-white">
-              {cadernetaGeneralInfo.className} – {selectedQuarter} / {cadernetaGeneralInfo.referenceYear}
+              {cadernetaGeneralInfo.className} – {selectedQuarter} /{" "}
+              {cadernetaGeneralInfo.referenceYear}
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              Professor(a): {cadernetaGeneralInfo.professor} • Superintendência: {cadernetaGeneralInfo.superintendent}
+              Professor(a): {cadernetaGeneralInfo.professor} • Superintendência:{" "}
+              {cadernetaGeneralInfo.superintendent}
             </p>
           </div>
           <Link
@@ -85,6 +94,12 @@ export default function CadernetaPage() {
           </Link>
         </div>
       </header>
+      {/* resto do componente */}
+    </div>
+  );
+}
+
+
 
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6">
         <section className="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -349,10 +364,12 @@ export default function CadernetaPage() {
                 })}
               </tbody>
             </table>
+
           </div>
         </section>
 
         <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+
           <h2 className="text-lg font-semibold text-white">Rol da Classe</h2>
           <p className="mt-1 text-sm text-slate-300">
             Cadastro completo com dados pessoais, aniversários e observações para integração contínua.
@@ -433,6 +450,7 @@ export default function CadernetaPage() {
           </div>
         </section>
       </main>
+
     </div>
   );
 }

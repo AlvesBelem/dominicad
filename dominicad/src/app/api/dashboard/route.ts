@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -31,26 +30,27 @@ export async function GET(request: Request) {
 
   const totalStudents = students.length;
 
-  const attendanceBySunday = attendances.reduce<Record<string, { date: string; presences: number; visitors: number; offering: number }>>(
-    (acc, record) => {
-      const key = record.date.toISOString().split("T")[0];
-      if (!acc[key]) {
-        acc[key] = {
-          date: key,
-          presences: 0,
-          visitors: 0,
-          offering: 0,
-        };
-      }
-      acc[key].presences += record.present ? 1 : 0;
-      acc[key].visitors += record.visitors ?? 0;
-      acc[key].offering += Number(record.offeringValue ?? 0);
-      return acc;
-    },
-    {}
-  );
+  const attendanceBySunday = attendances.reduce<
+    Record<string, { date: string; presences: number; visitors: number; offering: number }>
+  >((acc, record) => {
+    const key = record.date.toISOString().split("T")[0];
+    if (!acc[key]) {
+      acc[key] = {
+        date: key,
+        presences: 0,
+        visitors: 0,
+        offering: 0,
+      };
+    }
+    acc[key].presences += record.present ? 1 : 0;
+    acc[key].visitors += record.visitors ?? 0;
+    acc[key].offering += Number(record.offeringValue ?? 0);
+    return acc;
+  }, {});
 
-  const visitorCount = visitorLogs.length + Object.values(attendanceBySunday).reduce((sum, item) => sum + item.visitors, 0);
+  const visitorCount =
+    visitorLogs.length + Object.values(attendanceBySunday).reduce((sum, item) => sum + item.visitors, 0);
+
   const totalOfferings =
     Object.values(attendanceBySunday).reduce((sum, item) => sum + item.offering, 0) +
     offeringLogs.reduce((sum, log) => sum + Number(log.amount ?? 0), 0);
