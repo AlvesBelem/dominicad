@@ -3,28 +3,36 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
+  id             String    @id @default(cuid())
+  email          String    @unique
   passwordHash   String?
   churchName     String?
   teacherName    String?
   superintendent String?
-  plan           String?  @default("free")
+  plan           String?   @default("free")
   classes        Class[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  name           String
+  emailVerified  Boolean   @default(false)
+  image          String?
+  sessions       Session[]
+  accounts       Account[]
+
+  @@map("user")
 }
 
 model Class {
-  id             String            @id @default(cuid())
+  id             String        @id @default(cuid())
   name           String
   year           Int
   quarter        Int
@@ -32,19 +40,19 @@ model Class {
   professorName  String?
   superintendent String?
   churchName     String?
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String
   students       Student[]
   attendances    Attendance[]
   classReports   ClassReport[]
   visitorLogs    VisitorLog[]
   offeringLogs   OfferingLog[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 model Student {
-  id             String             @id @default(cuid())
+  id             String          @id @default(cuid())
   orderNumber    Int
   name           String
   birthDay       Int?
@@ -53,29 +61,29 @@ model Student {
   enrollmentDate DateTime?
   address        String?
   observation    String?
-  class          Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class          Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
   classId        String
   attendances    Attendance[]
   personalReport PersonalReport?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Attendance {
-  id             String    @id @default(cuid())
-  class          Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  class          Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   classId        String
-  student        Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student        Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId      String?
   date           DateTime
-  present        Boolean   @default(false)
-  broughtBible   Boolean   @default(false)
-  broughtLesson  Boolean   @default(false)
-  reviewedLesson Boolean   @default(false)
-  offeringValue  Decimal   @default(0)
-  visitors       Int       @default(0)
+  present        Boolean  @default(false)
+  broughtBible   Boolean  @default(false)
+  broughtLesson  Boolean  @default(false)
+  reviewedLesson Boolean  @default(false)
+  offeringValue  Decimal  @default(0)
+  visitors       Int      @default(0)
   notes          String?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime @default(now())
 }
 
 model PersonalReport {
@@ -132,4 +140,49 @@ model OfferingLog {
   amount    Decimal  @default(0)
   note      String?
   createdAt DateTime @default(now())
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
 }
