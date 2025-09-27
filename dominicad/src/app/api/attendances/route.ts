@@ -1,33 +1,111 @@
 import { NextResponse } from "next/server";
-
-const attendances = [
-  {
-    id: "attendance-1",
-    classId: "class-1",
-    date: "2025-01-26",
-    present: 22,
-    visitors: 4,
-    offerings: 455,
-  },
-  {
-    id: "attendance-2",
-    classId: "class-1",
-    date: "2025-01-19",
-    present: 21,
-    visitors: 1,
-    offerings: 360,
-  },
-];
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const classId = searchParams.get("classId");
-  const data = classId ? attendances.filter((item) => item.classId === classId) : attendances;
-  return NextResponse.json({ data });
+  const date = searchParams.get("date");
+
+  if (!classId) {
+    return NextResponse.json({ message: "Informe a turma." }, { status: 400 });
+  }
+
+  const whereClause = {
+    classId,
+    ...(date ? { date: new Date(date) } : {}),
+  };
+
+  const attendances = await prisma.attendance.findMany({
+    where: whereClause,
+    orderBy: [{ date: "desc" }],
+    select: {
+      id: true,
+      date: true,
+      present: true,
+      broughtBible: true,
+      broughtLesson: true,
+      reviewedLesson: true,
+      offeringValue: true,
+      visitors: true,
+      notes: true,
+      student: {
+        select: {
+          id: true,
+          name: true,
+          orderNumber: true,
+        },
+      },
+    },
+  });
+
+  return NextResponse.json({ data: attendances });
 }
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const created = { id: `attendance-${Date.now()}`, ...payload };
-  return NextResponse.json({ data: created }, { status: 201 });
+
+  const {
+    classId,
+    studentId,
+    date,
+    present,
+    broughtBible,
+    broughtLesson,
+    reviewedLesson,
+    offeringValue,
+    visitors,
+    notes,
+  } = payload ?? {};
+
+  if (!classId || !date) {
+    return NextResponse.json({ message: "Turma e data são obrigatórios." }, { status: 400 });
+  }
+
+  const numericOffering =
+    typeof offeringValue === "string" ? Number.parseFloat(offeringValue.replace(/,/g, ".")) : Number(offeringValue ?? 0);
+  const numericVisitors = typeof visitors === "string" ? Number.parseInt(visitors, 10) : Number(visitors ?? 0);
+
+  const record = await prisma.attendance.upsert({
+    where: {
+      // garante unicidade por turma, aluno (ou geral), e data
+      id: `${classId}-${studentId ?? "geral"}-${date}`,
+    },
+    update: {
+      present: Boolean(present),
+      broughtBible: Boolean(broughtBible),
+      broughtLesson: Boolean(broughtLesson),
+      reviewedLesson: Boolean(reviewedLesson),
+      offeringValue: Number.isNaN(numericOffering) ? 0 : numericOffering,
+      visitors: Number.isNaN(numericVisitors) ? 0 : numericVisitors,
+      notes,
+    },
+    create: {
+      id: `${classId}-${studentId ?? "geral"}-${date}`,
+      classId,
+      studentId,
+      date: new Date(date),
+      present: Boolean(present),
+      broughtBible: Boolean(broughtBible),
+      broughtLesson: Boolean(broughtLesson),
+      reviewedLesson: Boolean(reviewedLesson),
+      offeringValue: Number.isNaN(numericOffering) ? 0 : numericOffering,
+      visitors: Number.isNaN(numericVisitors) ? 0 : numericVisitors,
+      notes,
+    },
+    select: {
+      id: true,
+      classId: true,
+      studentId: true,
+      date: true,
+      present: true,
+      broughtBible: true,
+      broughtLesson: true,
+      reviewedLesson: true,
+      offeringValue: true,
+      visitors: true,
+      notes: true,
+    },
+  });
+
+  return NextResponse.json({ data: record }, { status: 201 });
 }

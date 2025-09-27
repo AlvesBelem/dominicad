@@ -1,273 +1,456 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, Save, Users } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
+import { CalendarDays, ChevronLeft, ClipboardList, School, Users } from "lucide-react";
 
-interface StudentRecord {
-  id: number;
-  name: string;
-  age: number;
+import {
+  cadernetaGeneralInfo,
+  classQuarterSummaries,
+  classRoll,
+  monthsByQuarter,
+  personalReport,
+  secretaryOrientation,
+  studentsFrequency,
+  teacherOrientation,
+  type QuarterKey,
+} from "@/data/caderneta";
+
+const quarters: QuarterKey[] = ["1º Trimestre", "2º Trimestre", "3º Trimestre", "4º Trimestre"];
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-interface AttendanceRecord {
-  studentId: number;
-  present: boolean;
-  bible: boolean;
-  offer: string;
-  comment: string;
+function formatDate(date: string) {
+  const parsed = new Date(date);
+  return parsed.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-
-const students: StudentRecord[] = [
-  { id: 1, name: "Ana Souza", age: 13 },
-  { id: 2, name: "Bruno Oliveira", age: 12 },
-  { id: 3, name: "Camila Ribeiro", age: 14 },
-  { id: 4, name: "Diego Rocha", age: 13 },
-  { id: 5, name: "Eduarda Santos", age: 12 },
-];
+function formatBirthday(day: number, month: number) {
+  return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}`;
+}
 
 export default function CadernetaPage() {
-  const [date, setDate] = useState("26/01/2025");
-  const [records, setRecords] = useState<AttendanceRecord[]>(
-    students.map((student) => ({
-      studentId: student.id,
-      present: true,
-      bible: true,
-      offer: "5,00",
-      comment: "",
-    }))
+  const [selectedQuarter, setSelectedQuarter] = useState<QuarterKey>("1º Trimestre");
+
+  const months = monthsByQuarter[selectedQuarter];
+
+  const frequencyRows = useMemo(() => {
+    return studentsFrequency.map((student) => {
+      const monthSnapshots = months.map((month) => {
+        const presences =
+          student.frequency[selectedQuarter]?.[month.name] ??
+          new Array(month.sundays.length).fill(false);
+        const totalPresences = presences.filter(Boolean).length;
+        return { month, presences, totalPresences };
+      });
+      const quarterTotal = monthSnapshots.reduce(
+        (sum, snapshot) => sum + snapshot.totalPresences,
+        0
+      );
+      return { student, monthSnapshots, quarterTotal };
+    });
+  }, [months, selectedQuarter]);
+
+  const monthPresenceTotals = useMemo(() => {
+    return months.map((month) => {
+      const total = studentsFrequency.reduce((sum, student) => {
+        const presences = student.frequency[selectedQuarter]?.[month.name] ?? [];
+        return sum + presences.filter(Boolean).length;
+      }, 0);
+      return { month: month.name, total };
+    });
+  }, [months, selectedQuarter]);
+
+  const quarterSummary = useMemo(
+    () => classQuarterSummaries.find((summary) => summary.quarter === selectedQuarter),
+    [selectedQuarter]
   );
-  const [visitors, setVisitors] = useState<{ name: string; age: number }[]>([
-    { name: "Pedro Lima", age: 12 },
-  ]);
-  const [classNote, setClassNote] = useState("Reforçar convite para retiro juvenil em fevereiro.");
-
-  const totals = useMemo(() => {
-    const presentCount = records.filter((record) => record.present).length;
-    const bibleCount = records.filter((record) => record.bible).length;
-    const offeringTotal = records.reduce((sum, record) => {
-      const sanitized = Number(record.offer.replace(/[^0-9,.-]/g, "").replace(",", "."));
-      return sum + (Number.isFinite(sanitized) ? sanitized : 0);
-    }, 0);
-
-    return {
-      presentCount,
-      bibleCount,
-      offeringTotal,
-    };
-  }, [records]);
-
-  const handleCheckboxChange = (studentId: number, field: "present" | "bible") => {
-    setRecords((prev) =>
-      prev.map((record) =>
-        record.studentId === studentId ? { ...record, [field]: !record[field] } : record
-      )
-    );
-  };
-
-  const handleOfferChange = (studentId: number, value: string) => {
-    setRecords((prev) =>
-      prev.map((record) =>
-        record.studentId === studentId ? { ...record, offer: value } : record
-      )
-    );
-  };
-
-  const handleCommentChange = (studentId: number, value: string) => {
-    setRecords((prev) =>
-      prev.map((record) =>
-        record.studentId === studentId ? { ...record, comment: value } : record
-      )
-    );
-  };
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 pb-16">
       <header className="border-b border-slate-800/60 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-emerald-200">Caderneta Digital</p>
-            <h1 className="text-2xl font-semibold text-white">Classe Adolescentes – 1º Trimestre/2025</h1>
-            <p className="mt-1 text-sm text-slate-400">Professor: Maria Andrade • Secretaria: João Costa</p>
+            <p className="text-xs uppercase tracking-wide text-emerald-200">
+              Caderneta Digital Dominical
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold text-white">
+              {cadernetaGeneralInfo.className} – {selectedQuarter} /{" "}
+              {cadernetaGeneralInfo.referenceYear}
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Professor(a): {cadernetaGeneralInfo.professor} • Superintendência:{" "}
+              {cadernetaGeneralInfo.superintendent}
+            </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-200"
+            className="inline-flex items-center gap-2 self-start rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-emerald-400 hover:text-emerald-200"
           >
             <ChevronLeft className="h-4 w-4" />
             Voltar ao dashboard
           </Link>
         </div>
       </header>
+      {/* resto do componente */}
+    </div>
+  );
+}
 
-      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
+
+
+      <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6">
+        <section className="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+              <School className="h-4 w-4 text-emerald-300" />
+              Escola
+            </div>
+            <p className="mt-2 text-sm font-semibold text-white">{cadernetaGeneralInfo.school}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+              <Users className="h-4 w-4 text-emerald-300" />
+              Igreja
+            </div>
+            <p className="mt-2 text-sm font-semibold text-white">{cadernetaGeneralInfo.church}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+              <ClipboardList className="h-4 w-4 text-emerald-300" />
+              Professor responsável
+            </div>
+            <p className="mt-2 text-sm font-semibold text-white">{cadernetaGeneralInfo.professor}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+              <CalendarDays className="h-4 w-4 text-emerald-300" />
+              Ano de referência
+            </div>
+            <p className="mt-2 text-sm font-semibold text-white">{cadernetaGeneralInfo.referenceYear}</p>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-lg font-semibold text-white">Orientações ao Professor</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Conteúdos históricos da caderneta que inspiram cuidado pastoral e excelência no ensino semanal.
+            </p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-200">
+              {teacherOrientation.map((tip) => (
+                <li key={tip} className="flex gap-3 rounded-xl border border-slate-800/60 bg-slate-950/60 p-3">
+                  <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-lg font-semibold text-white">Orientações ao Secretário</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Responsabilidades administrativas para manter registros, relatórios e transferências em dia.
+            </p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-200">
+              {secretaryOrientation.map((tip) => (
+                <li key={tip} className="flex gap-3 rounded-xl border border-slate-800/60 bg-slate-950/60 p-3">
+                  <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-sky-400" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </section>
+
         <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Domingo de registro</p>
-              <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/60 px-4 py-2 text-sm text-white">
-                <CalendarDays className="h-4 w-4 text-emerald-300" />
-                <input
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="bg-transparent text-sm focus:outline-none"
-                  aria-label="Data"
-                />
+              <h2 className="text-lg font-semibold text-white">Registro de Frequência Trimestral</h2>
+              <p className="mt-1 text-sm text-slate-300">
+                Espelho fiel da caderneta física com presenças por domingo, totais mensais e consolidação do trimestre.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {quarters.map((quarter) => (
+                <button
+                  key={quarter}
+                  type="button"
+                  onClick={() => setSelectedQuarter(quarter)}
+                  className={`rounded-full border px-4 py-1.5 text-sm transition ${
+                    quarter === selectedQuarter
+                      ? "border-emerald-400 bg-emerald-500/20 text-emerald-200"
+                      : "border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500"
+                  }`}
+                >
+                  {quarter}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="min-w-full divide-y divide-slate-800 text-sm">
+              <thead className="bg-slate-950/60 text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th rowSpan={2} className="px-4 py-3 text-left font-semibold">
+                    Nº
+                  </th>
+                  <th rowSpan={2} className="px-4 py-3 text-left font-semibold">
+                    Nome
+                  </th>
+                  <th rowSpan={2} className="px-4 py-3 text-left font-semibold">
+                    Obs.
+                  </th>
+                  {months.map((month) => (
+                    <th key={month.name} colSpan={month.sundays.length + 1} className="px-4 py-3 text-center font-semibold">
+                      {month.name}
+                    </th>
+                  ))}
+                  <th rowSpan={2} className="px-4 py-3 text-center font-semibold">
+                    Total Trimestre
+                  </th>
+                </tr>
+                <tr>
+                  {months.map((month) => (
+                    <Fragment key={month.name}>
+                      {month.sundays.map((sunday) => (
+                        <th key={`${month.name}-${sunday}`} className="px-3 py-2 text-center font-medium">
+                          {sunday}
+                        </th>
+                      ))}
+                      <th className="px-3 py-2 text-center font-medium">Total</th>
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-200">
+                {frequencyRows.map(({ student, monthSnapshots, quarterTotal }) => (
+                  <tr key={student.orderNumber} className="bg-slate-950/40 transition hover:bg-slate-950/70">
+                    <td className="px-4 py-3 font-semibold text-white">{student.orderNumber}</td>
+                    <td className="px-4 py-3 font-semibold text-white">{student.name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400">{student.observation ?? "—"}</td>
+                    {monthSnapshots.map(({ month, presences, totalPresences }) => (
+                      <Fragment key={`${student.orderNumber}-${month.name}`}>
+                        {presences.map((present, index) => (
+                          <td key={`${student.orderNumber}-${month.name}-${index}`} className="px-3 py-3 text-center">
+                            <span
+                              className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                                present ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/10 text-rose-200"
+                              }`}
+                            >
+                              {present ? "P" : "A"}
+                            </span>
+                          </td>
+                        ))}
+                        <td className="px-3 py-3 text-center font-semibold text-white">
+                          {totalPresences}
+                        </td>
+                      </Fragment>
+                    ))}
+                    <td className="px-4 py-3 text-center font-semibold text-emerald-200">{quarterTotal}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-4">
+              <h3 className="text-sm font-semibold text-white">Totais de presença por mês</h3>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {monthPresenceTotals.map((item) => (
+                  <div key={item.month} className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-200">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">{item.month}</p>
+                    <p className="mt-1 text-base font-semibold text-white">{item.total} presenças</p>
+                  </div>
+                ))}
               </div>
             </div>
-            <button className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400">
-              <Save className="h-4 w-4" />
-              Salvar registro
-            </button>
-          </div>
-          <p className="mt-4 text-sm text-slate-300">
-            Registre presença, bíblia, ofertas e observações para cada aluno. Os totais são calculados automaticamente e ficam
-            disponíveis para o dashboard em tempo real.
-          </p>
-        </section>
-
-        <section className="overflow-hidden rounded-3xl border border-slate-800">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-950/70 text-left text-xs uppercase tracking-wide text-slate-400">
-              <tr>
-                <th className="px-4 py-3 font-medium">Aluno</th>
-                <th className="px-4 py-3 font-medium">Idade</th>
-                <th className="px-4 py-3 font-medium">Presença</th>
-                <th className="px-4 py-3 font-medium">Bíblia</th>
-                <th className="px-4 py-3 font-medium">Oferta (R$)</th>
-                <th className="px-4 py-3 font-medium">Observações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800 text-slate-200">
-              {students.map((student) => {
-                const record = records.find((item) => item.studentId === student.id)!;
-                return (
-                  <tr key={student.id} className="transition hover:bg-slate-950/80">
-                    <td className="px-4 py-3 font-semibold text-white">{student.name}</td>
-                    <td className="px-4 py-3">{student.age}</td>
-                    <td className="px-4 py-3">
-                      <label className="inline-flex items-center gap-2 text-xs text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={record.present}
-                          onChange={() => handleCheckboxChange(student.id, "present")}
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-400"
-                        />
-                        Presente
-                      </label>
-                    </td>
-                    <td className="px-4 py-3">
-                      <label className="inline-flex items-center gap-2 text-xs text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={record.bible}
-                          onChange={() => handleCheckboxChange(student.id, "bible")}
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-400"
-                        />
-                        Trouxe Bíblia
-                      </label>
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        value={record.offer}
-                        onChange={(event) => handleOfferChange(student.id, event.target.value)}
-                        className="w-24 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        value={record.comment}
-                        onChange={(event) => handleCommentChange(student.id, event.target.value)}
-                        placeholder="Observação opcional"
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-            <h2 className="text-lg font-semibold text-white">Visitantes do dia</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Registre visitantes para acompanhar a retenção e gerar relatórios de integração.
-            </p>
-            <div className="mt-4 space-y-4">
-              {visitors.map((visitor, index) => (
-                <div key={index} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="text-base font-semibold text-white">{visitor.name}</p>
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{visitor.age} anos</p>
-                </div>
-              ))}
-              <button
-                className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-emerald-400 hover:text-emerald-200"
-                onClick={() => setVisitors((prev) => [...prev, { name: "Novo visitante", age: 11 }])}
-              >
-                Adicionar visitante
-              </button>
-            </div>
-          </div>
-          <div className="rounded-3xl border border-emerald-500/40 bg-emerald-500/10 p-6">
-            <h2 className="text-lg font-semibold text-white">Totais do domingo</h2>
-            <ul className="mt-4 space-y-3 text-sm text-emerald-100">
-              <li className="flex items-center justify-between">
-                <span>Alunos presentes</span>
-                <span className="font-semibold text-white">{totals.presentCount}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Alunos com Bíblia</span>
-                <span className="font-semibold text-white">{totals.bibleCount}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Oferta total</span>
-                <span className="font-semibold text-white">R$ {totals.offeringTotal.toFixed(2)}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Visitantes</span>
-                <span className="font-semibold text-white">{visitors.length}</span>
-              </li>
-            </ul>
-            <div className="mt-6">
-              <label className="mb-2 block text-xs uppercase tracking-wide text-emerald-200">Resumo da aula</label>
-              <textarea
-                value={classNote}
-                onChange={(event) => setClassNote(event.target.value)}
-                rows={4}
-                className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-white placeholder:text-emerald-100/70 focus:border-white focus:outline-none"
-              />
-            </div>
+            {quarterSummary && (
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-4">
+                <h3 className="text-sm font-semibold text-white">Totais da classe ({selectedQuarter})</h3>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-300 sm:grid-cols-3">
+                  <div>
+                    <dt className="uppercase tracking-wide">Matriculados</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.enrolled}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Presentes</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.presents}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Ausentes</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.absences}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Visitantes</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.visitors}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Total assistências</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.totalAssistances}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Bíblias</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.bibles}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Revistas</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.magazines}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Revisão</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.review}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Ofertas</dt>
+                    <dd className="mt-1 text-sm font-semibold text-emerald-200">{formatCurrency(quarterSummary.offerings)}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide">Nota trimestral</dt>
+                    <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.quarterlyGrade.toFixed(1)}</dd>
+                  </div>
+                  {quarterSummary.annualGrade !== undefined && (
+                    <div>
+                      <dt className="uppercase tracking-wide">Nota anual da classe</dt>
+                      <dd className="mt-1 text-sm font-semibold text-white">{quarterSummary.annualGrade.toFixed(1)}</dd>
+                    </div>
+                  )}
+                </dl>
+                <p className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-300">
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Observações</span>
+                  {quarterSummary.observations}
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
         <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-          <h2 className="text-lg font-semibold text-white">Histórico trimestral</h2>
-          <p className="mt-2 text-sm text-slate-300">
-            Visualize os dados consolidados que alimentam o dashboard. Em breve, relatórios exportáveis por trimestre e ano.
+          <h2 className="text-lg font-semibold text-white">Relatório Anual Pessoal</h2>
+          <p className="mt-1 text-sm text-slate-300">
+            Acompanhamento individual com indicadores clássicos da caderneta: frequência, comportamento, pontualidade e
+            conhecimento bíblico.
           </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            {["Janeiro", "Fevereiro", "Março"].map((month) => (
-              <div key={month} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">{month}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">90% presença</p>
-                <p className="mt-1 text-xs text-slate-400">Oferta média: R$ 680</p>
-              </div>
-            ))}
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="min-w-full divide-y divide-slate-800 text-sm">
+              <thead className="bg-slate-950/60 text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Aluno</th>
+                  <th className="px-4 py-3 text-center font-semibold">Frequência</th>
+                  <th className="px-4 py-3 text-center font-semibold">Comportamento e trabalho</th>
+                  <th className="px-4 py-3 text-center font-semibold">Pontualidade</th>
+                  <th className="px-4 py-3 text-center font-semibold">Conhecimento bíblico</th>
+                  <th className="px-4 py-3 text-center font-semibold">Nota atual</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-200">
+                {personalReport.map((entry) => {
+                  const finalScore = Number(
+                    ((entry.attendance + entry.behavior + entry.punctuality + entry.bibleKnowledge) / 4).toFixed(1)
+                  );
+                  return (
+                    <tr key={entry.name} className="bg-slate-950/40">
+                      <td className="px-4 py-3 font-semibold text-white">{entry.name}</td>
+                      <td className="px-4 py-3 text-center">{entry.attendance.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-center">{entry.behavior.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-center">{entry.punctuality.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-center">{entry.bibleKnowledge.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-center font-semibold text-emerald-200">{finalScore.toFixed(1)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+
+          <h2 className="text-lg font-semibold text-white">Rol da Classe</h2>
+          <p className="mt-1 text-sm text-slate-300">
+            Cadastro completo com dados pessoais, aniversários e observações para integração contínua.
+          </p>
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="min-w-full divide-y divide-slate-800 text-sm">
+              <thead className="bg-slate-950/60 text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Nº</th>
+                  <th className="px-4 py-3 text-left font-semibold">Nome</th>
+                  <th className="px-4 py-3 text-left font-semibold">Aniversário</th>
+                  <th className="px-4 py-3 text-left font-semibold">Idade</th>
+                  <th className="px-4 py-3 text-left font-semibold">Data da matrícula</th>
+                  <th className="px-4 py-3 text-left font-semibold">Endereço</th>
+                  <th className="px-4 py-3 text-left font-semibold">Observações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-200">
+                {classRoll.map((entry) => (
+                  <tr key={entry.orderNumber} className="bg-slate-950/40">
+                    <td className="px-4 py-3 font-semibold text-white">{entry.orderNumber}</td>
+                    <td className="px-4 py-3 font-semibold text-white">{entry.name}</td>
+                    <td className="px-4 py-3">{formatBirthday(entry.birthDay, entry.birthMonth)}</td>
+                    <td className="px-4 py-3">{entry.age} anos</td>
+                    <td className="px-4 py-3">{formatDate(entry.enrollmentDate)}</td>
+                    <td className="px-4 py-3">{entry.address}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400">{entry.notes ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+          <h2 className="text-lg font-semibold text-white">Relatório Anual da Classe</h2>
+          <p className="mt-1 text-sm text-slate-300">
+            Consolidação dos quatro trimestres com métricas de matriculados, presença, evangelização e notas da turma.
+          </p>
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="min-w-full divide-y divide-slate-800 text-sm">
+              <thead className="bg-slate-950/60 text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Trimestre</th>
+                  <th className="px-4 py-3 text-center font-semibold">Matriculados</th>
+                  <th className="px-4 py-3 text-center font-semibold">Presenças</th>
+                  <th className="px-4 py-3 text-center font-semibold">Ausências</th>
+                  <th className="px-4 py-3 text-center font-semibold">% Matriculados Presentes</th>
+                  <th className="px-4 py-3 text-center font-semibold">Visitantes</th>
+                  <th className="px-4 py-3 text-center font-semibold">Total de assistências</th>
+                  <th className="px-4 py-3 text-center font-semibold">Bíblias</th>
+                  <th className="px-4 py-3 text-center font-semibold">Ofertas</th>
+                  <th className="px-4 py-3 text-center font-semibold">Nota Trimestral</th>
+                  <th className="px-4 py-3 text-center font-semibold">Nota anual da classe</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-200">
+                {classQuarterSummaries.map((summary) => {
+                  const percent = summary.enrolled === 0 ? 0 : (summary.presents / (summary.enrolled * 13)) * 100;
+                  return (
+                    <tr key={summary.quarter} className="bg-slate-950/40">
+                      <td className="px-4 py-3 font-semibold text-white">{summary.quarter}</td>
+                      <td className="px-4 py-3 text-center">{summary.enrolled}</td>
+                      <td className="px-4 py-3 text-center">{summary.presents}</td>
+                      <td className="px-4 py-3 text-center">{summary.absences}</td>
+                      <td className="px-4 py-3 text-center">{percent.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-center">{summary.visitors}</td>
+                      <td className="px-4 py-3 text-center">{summary.totalAssistances}</td>
+                      <td className="px-4 py-3 text-center">{summary.bibles}</td>
+                      <td className="px-4 py-3 text-center">{formatCurrency(summary.offerings)}</td>
+                      <td className="px-4 py-3 text-center">{summary.quarterlyGrade.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-center">{summary.annualGrade ? summary.annualGrade.toFixed(1) : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-slate-800/60 bg-slate-950/80">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>Dados protegidos por workspace. Somente sua equipe visualiza este registro.</p>
-          <p className="inline-flex items-center gap-2 text-emerald-200">
-            <Users className="h-4 w-4" /> Sincronizado com dashboard em tempo real
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

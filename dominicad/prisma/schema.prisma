@@ -1,0 +1,135 @@
+// Prisma schema for DominiCad digital caderneta
+// Using SQLite for local development; swap provider for production as needed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String?
+  churchName     String?
+  teacherName    String?
+  superintendent String?
+  plan           String?  @default("free")
+  classes        Class[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Class {
+  id             String            @id @default(cuid())
+  name           String
+  year           Int
+  quarter        Int
+  headerNote     String?
+  professorName  String?
+  superintendent String?
+  churchName     String?
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  students       Student[]
+  attendances    Attendance[]
+  classReports   ClassReport[]
+  visitorLogs    VisitorLog[]
+  offeringLogs   OfferingLog[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model Student {
+  id             String             @id @default(cuid())
+  orderNumber    Int
+  name           String
+  birthDay       Int?
+  birthMonth     Int?
+  age            Int?
+  enrollmentDate DateTime?
+  address        String?
+  observation    String?
+  class          Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId        String
+  attendances    Attendance[]
+  personalReport PersonalReport?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model Attendance {
+  id             String    @id @default(cuid())
+  class          Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId        String
+  student        Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId      String?
+  date           DateTime
+  present        Boolean   @default(false)
+  broughtBible   Boolean   @default(false)
+  broughtLesson  Boolean   @default(false)
+  reviewedLesson Boolean   @default(false)
+  offeringValue  Decimal   @default(0)
+  visitors       Int       @default(0)
+  notes          String?
+  createdAt      DateTime  @default(now())
+}
+
+model PersonalReport {
+  id              String   @id @default(cuid())
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId       String   @unique
+  year            Int
+  attendanceScore Float
+  behaviorScore   Float
+  punctuality     Float
+  bibleKnowledge  Float
+  finalScore      Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ClassReport {
+  id               String   @id @default(cuid())
+  class            Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId          String
+  year             Int
+  quarter          Int
+  enrolled         Int
+  presences        Int
+  absences         Int
+  percentPresent   Float
+  visitors         Int
+  totalAssistances Int
+  bibles           Int
+  offerings        Decimal  @default(0)
+  quarterlyGrade   Float
+  annualClassGrade Float?
+  observations     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model VisitorLog {
+  id        String   @id @default(cuid())
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+  date      DateTime
+  name      String
+  age       Int?
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model OfferingLog {
+  id        String   @id @default(cuid())
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+  date      DateTime
+  amount    Decimal  @default(0)
+  note      String?
+  createdAt DateTime @default(now())
+}

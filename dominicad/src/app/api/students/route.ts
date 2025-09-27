@@ -1,20 +1,76 @@
 import { NextResponse } from "next/server";
-
-const students = [
-  { id: "student-1", classId: "class-1", name: "Ana Souza", age: 13, enrollment: "AD-2025-01" },
-  { id: "student-2", classId: "class-1", name: "Bruno Oliveira", age: 12, enrollment: "AD-2025-02" },
-  { id: "student-3", classId: "class-2", name: "Camila Ribeiro", age: 20, enrollment: "JO-2025-01" },
-];
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const classId = searchParams.get("classId");
-  const data = classId ? students.filter((student) => student.classId === classId) : students;
-  return NextResponse.json({ data });
+
+  if (!classId) {
+    return NextResponse.json({ message: "Informe a turma." }, { status: 400 });
+  }
+
+  const students = await prisma.student.findMany({
+    where: { classId },
+    orderBy: [{ orderNumber: "asc" }],
+    select: {
+      id: true,
+      orderNumber: true,
+      name: true,
+      age: true,
+      birthDay: true,
+      birthMonth: true,
+      enrollmentDate: true,
+      address: true,
+      observation: true,
+    },
+  });
+
+  return NextResponse.json({ data: students });
 }
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const created = { id: `student-${Date.now()}`, ...payload };
+
+  const {
+    classId,
+    orderNumber,
+    name,
+    age,
+    birthDay,
+    birthMonth,
+    enrollmentDate,
+    address,
+    observation,
+  } = payload ?? {};
+
+  if (!classId || !orderNumber || !name) {
+    return NextResponse.json({ message: "Número, nome e turma são obrigatórios." }, { status: 400 });
+  }
+
+  const created = await prisma.student.create({
+    data: {
+      classId,
+      orderNumber,
+      name,
+      age,
+      birthDay,
+      birthMonth,
+      enrollmentDate: enrollmentDate ? new Date(enrollmentDate) : undefined,
+      address,
+      observation,
+    },
+    select: {
+      id: true,
+      orderNumber: true,
+      name: true,
+      age: true,
+      birthDay: true,
+      birthMonth: true,
+      enrollmentDate: true,
+      address: true,
+      observation: true,
+    },
+  });
+
   return NextResponse.json({ data: created }, { status: 201 });
 }
